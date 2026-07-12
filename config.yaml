@@ -1,0 +1,20 @@
+#for cnn model
+confidence:
+  threshold: 0.80
+
+#for faiss
+retrieval:
+  # Number of top-k documents to retrieve from the FAISS index.
+  top_k: 2
+  # Path to the locally saved FAISS index directory.
+  db_path: "faiss_index"
+  # HuggingFace sentence-transformer model used for embedding.
+  embedding_model: "all-MiniLM-L6-v2"
+
+
+llm:
+  # Google Gemini model (free tier) used for clinical report synthesis.
+  # Requires GOOGLE_API_KEY to be set in a local .env file (see .env.example).
+  model: "gemini-2.0-flash"
+  # Lower = more deterministic/reproducible; higher = more creative.
+  temperature: 0.0
