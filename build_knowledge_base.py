@@ -7,6 +7,7 @@ Source PDFs are referenced by absolute path since they live in ~/Downloads,
 outside this repo — add more entries to SOURCE_PDFS as you gather more papers.
 """
 import os
+import re
 
 import yaml
 from langchain_community.document_loaders import PyPDFLoader
@@ -23,7 +24,8 @@ _DB_PATH = _CONFIG["retrieval"]["db_path"]
 
 SOURCE_PDFS = [
     "/Users/susanadhikari/Downloads/Alzheimer's OCT Research Paper Guidance.pdf",
-    "/Users/susanadhikari/Downloads/s41746-024-01109-5.pdf",
+    "/Users/susanadhikari/Documents/RAG_Pipeline/data/OCTBiomarkersForAD.pdf",
+    "/Users/susanadhikari/Documents/RAG_Pipeline/data/RiskFactorsForAD.pdf"
 ]
 
 
@@ -36,6 +38,12 @@ def load_and_chunk() -> list:
             continue
         print(f"Loading {pdf_path}...")
         pages = PyPDFLoader(pdf_path).load()
+        # Some PDFs extract with a stray newline/space between nearly every
+        # word (a per-glyph line-break artifact from how the PDF was
+        # produced). Collapse all whitespace before chunking so retrieved
+        # text renders as normal prose instead of one word per line.
+        for page in pages:
+            page.page_content = re.sub(r"\s+", " ", page.page_content).strip()
         chunks = splitter.split_documents(pages)
         source_name = os.path.basename(pdf_path)
         for chunk in chunks:
@@ -54,12 +62,12 @@ def main():
 
     print(f"\nTotal chunks: {len(chunks)}")
     embeddings = get_embeddings()
-    print("Embedding and building FAISS index (this may take a minute)...")
+    print("Embedding and building FAISS index ...")
     vectorstore = FAISS.from_documents(chunks, embeddings)
 
     print(f"Saving to '{_DB_PATH}'...")
     vectorstore.save_local(_DB_PATH)
-    print("Done! The real literature knowledge base replaces the mock one.")
+    print("Done! The Knowledge Base has been updated")
 
 
 if __name__ == "__main__":

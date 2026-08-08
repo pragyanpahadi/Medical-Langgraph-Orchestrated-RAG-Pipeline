@@ -1,5 +1,5 @@
 from rag_pipeline import build_graph, PatientMetadata
-from mock_data import setup_mock_vectorstore
+import build_knowledge_base
 import os
 
 # Real Dryad subjects whose OCT scans live in sample_images/ — age is the
@@ -52,7 +52,8 @@ def build_state_from_image(image_path: str, metadata: PatientMetadata) -> dict:
 def main():
     print("Setting up local vectorstore for RAG...")
     if not os.path.exists("faiss_index"):
-        setup_mock_vectorstore()
+        print("No FAISS index found — building it from the real literature in SOURCE_PDFS...")
+        build_knowledge_base.main()
 
     print("\nCompiling the LangGraph Agentic Pipeline...")
     app = build_graph()

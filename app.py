@@ -168,7 +168,7 @@ else:
             st.session_state.upload_image_path = tmp.name
             st.session_state.upload_transcript.append((
                 "assistant",
-                f"✅ This looks like a valid OCT scan (confidence: {validity['oct_probability']:.0%}). "
+                f" This looks like a valid OCT scan (confidence: {validity['oct_probability']:.0%}). "
                 f"Let's collect a few patient details. What is the patient's **age**?",
             ))
             st.session_state.upload_stage = "collect_age"
