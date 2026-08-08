@@ -6,3 +6,5 @@ faiss_index/
 RAG_Workflow.md
 models/*.pth
 PROJECT_OVERVIEW.md
+data/
+alzheimer_poc_training.ipynb
