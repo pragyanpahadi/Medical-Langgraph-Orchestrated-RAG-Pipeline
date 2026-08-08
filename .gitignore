@@ -4,3 +4,5 @@ __pycache__/
 faiss_index/
 .env
 RAG_Workflow.md
+models/*.pth
+PROJECT_OVERVIEW.md

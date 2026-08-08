@@ -2,6 +2,14 @@
 confidence:
   threshold: 0.80
 
+vision:
+  # Fixed filename convention: to update the model, overwrite this file with a
+  # new checkpoint (same architecture) — no code changes needed.
+  checkpoint_path: "models/vision_model.pth"
+  image_size: 224
+  class_names: ["AD", "NORMAL"]
+  device: "cpu"
+
 #for faiss
 retrieval:
   # Number of top-k documents to retrieve from the FAISS index.

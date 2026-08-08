@@ -9,11 +9,9 @@ import yaml
 
 from mock_data import retrieve_evidence
 
-# Secrets (e.g. GOOGLE_API_KEY) live in a local, git-ignored .env file rather
-# than in config.yaml, which holds non-secret settings and is safe to commit.
 load_dotenv()
 
-# --- Load configuration from config.yaml ---
+
 _CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.yaml")
 with open(_CONFIG_PATH, "r") as _f:
     _CONFIG = yaml.safe_load(_f)
@@ -40,25 +38,25 @@ class RAGState(TypedDict):
     """
     Represents the state of our RAG orchestration graph.
     """
-    # 1. Inputs
+    
     metadata: PatientMetadata
     
-    # 2. Vision Model Outputs
+    
     visual_features: str       
     cnn_prediction: str        
     cnn_confidence: float      
     
-    # 3. Agentic Routing State
+    
     requires_human_review: bool 
     
-    # 4. RAG Pipeline
+
     retrieval_query: str       
     retrieved_context: List[Document] 
     
-    # 5. Final Output
+
     clinical_report: str       
 
-# --- Nodes ---
+# nodes
 
 def evaluate_cnn_confidence(state: RAGState) -> RAGState:
     """
@@ -106,8 +104,6 @@ def synthesize_rationale(state: RAGState) -> RAGState:
         state["clinical_report"] = mock_report
         return state
 
-    llm = ChatGoogleGenerativeAI(model=_LLM_MODEL, temperature=_LLM_TEMPERATURE)
-    
     prompt = PromptTemplate.from_template(
         "You are an expert neuro-ophthalmologist AI assistant.\n"
         "Generate a structured, context-aware clinical rationale report.\n\n"
@@ -117,9 +113,9 @@ def synthesize_rationale(state: RAGState) -> RAGState:
         "Provide a concise summary linking the vision model's findings with the literature context and patient metadata. "
         "Do not make a definitive diagnosis, summarize the evidence for the clinician."
     )
-    
+
     context_str = "\n".join([doc.page_content for doc in state.get("retrieved_context", [])])
-    
+
     formatted_prompt = prompt.format(
         age=state["metadata"]["age"],
         sex=state["metadata"]["sex"],
@@ -129,10 +125,21 @@ def synthesize_rationale(state: RAGState) -> RAGState:
         visual_features=state["visual_features"],
         context=context_str
     )
-    
-    response = llm.invoke(formatted_prompt)
-    state["clinical_report"] = response.content
-    
+
+    try:
+        llm = ChatGoogleGenerativeAI(model=_LLM_MODEL, temperature=_LLM_TEMPERATURE)
+        response = llm.invoke(formatted_prompt)
+        state["clinical_report"] = response.content
+    except Exception as e:
+        # Never let a live demo crash on an API hiccup (quota, network, etc.)
+        print(f"Warning: LLM call failed ({type(e).__name__}: {e}). Falling back to mock report.")
+        state["clinical_report"] = (
+            f"**Report Synthesis Unavailable ({type(e).__name__})**\n\n"
+            f"**Vision Module Finding:** {state['cnn_prediction']} (Confidence: {state['cnn_confidence']:.0%})\n\n"
+            f"**Supporting Literature Context:**\n{context_str}\n\n"
+            f"*Note: LLM call failed — raw retrieved context shown instead. Check API quota/network.*"
+        )
+
     return state
 
 def request_human_review(state: RAGState) -> RAGState:
@@ -143,7 +150,7 @@ def request_human_review(state: RAGState) -> RAGState:
     state["clinical_report"] = "AUTO-SYNTHESIS ABORTED: Vision model confidence below threshold. Manual human review requested."
     return state
 
-# --- Edges & Graph Compilation ---
+# edges and graphs for rag
 
 def route_based_on_confidence(state: RAGState):
     if state.get("requires_human_review"):
@@ -153,16 +160,16 @@ def route_based_on_confidence(state: RAGState):
 def build_graph() -> StateGraph:
     workflow = StateGraph(RAGState)
     
-    # Add nodes
+    # nodes
     workflow.add_node("evaluate_cnn_confidence", evaluate_cnn_confidence)
     workflow.add_node("retrieve_clinical_context", retrieve_clinical_context)
     workflow.add_node("synthesize_rationale", synthesize_rationale)
     workflow.add_node("request_human_review", request_human_review)
     
-    # Define edges
+    # edges
     workflow.set_entry_point("evaluate_cnn_confidence")
     
-    # Conditional routing after evaluating confidence
+    # conditional edges
     workflow.add_conditional_edges(
         "evaluate_cnn_confidence",
         route_based_on_confidence,
