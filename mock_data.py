@@ -59,6 +59,19 @@ def retrieve_evidence(query: str, db_path: str = "faiss_index", k: int = 2):
     retriever = vectorstore.as_retriever(search_kwargs={"k": k})
     return retriever.invoke(query)
 
+
+def retrieve_evidence_with_scores(query: str, db_path: str = "faiss_index", k: int = 2):
+    """
+    Same as retrieve_evidence, but also returns each document's raw FAISS L2
+    distance (lower = more relevant). Used to gate whether a query is even
+    in-scope for this knowledge base before spending an LLM call on it —
+    empirically, in-scope OCT/AD questions score ~0.7-0.9 against this index,
+    while off-topic questions score ~1.6-1.9.
+    """
+    embeddings = get_embeddings()
+    vectorstore = FAISS.load_local(db_path, embeddings, allow_dangerous_deserialization=True)
+    return vectorstore.similarity_search_with_score(query, k=k)
+
 if __name__ == "__main__":
     # Test setting up and querying the vector store
     setup_mock_vectorstore()
