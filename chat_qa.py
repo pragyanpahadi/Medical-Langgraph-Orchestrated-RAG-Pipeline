@@ -53,7 +53,8 @@ _QA_PROMPT = PromptTemplate.from_template(
     "Otherwise, answer using ONLY the retrieved literature context and the "
     "current case's report below. If the context doesn't contain the answer, "
     "say so plainly rather than guessing. Keep answers concise and cite the "
-    "source document/page when you use a retrieved fact.\n\n"
+    "source document/page (and its DOI, when one is given) when you use a "
+    "retrieved fact.\n\n"
     "=== CURRENT CASE REPORT ===\n{case_report}\n=== END CURRENT CASE REPORT ===\n\n"
     "=== RETRIEVED CONTEXT ===\n{context}\n=== END RETRIEVED CONTEXT ===\n\n"
     "Conversation so far:\n{history}\n\n"
@@ -76,14 +77,21 @@ def answer_question(question: str, case_report: str = "", history: list[tuple[st
         return {"answer": _OUT_OF_SCOPE_ANSWER, "sources": []}
 
     docs = [d for d, _ in scored_docs]
-    context_str = "\n\n".join(
-        f"[{d.metadata.get('source', 'unknown')}, page {d.metadata.get('page', '?')}] {d.page_content}"
-        for d in docs
-    )
+
+    def _citation_label(d):
+        label = f"{d.metadata.get('source', 'unknown')}, page {d.metadata.get('page', '?')}"
+        doi = d.metadata.get("doi")
+        return f"{label}, DOI {doi}" if doi else label
+
+    context_str = "\n\n".join(f"[{_citation_label(d)}] {d.page_content}" for d in docs)
     history_str = "\n".join(f"Q: {q}\nA: {a}" for q, a in history) or "(none yet)"
 
     sources = [
-        {"source": d.metadata.get("source", "unknown"), "page": d.metadata.get("page", "?")}
+        {
+            "source": d.metadata.get("source", "unknown"),
+            "page": d.metadata.get("page", "?"),
+            "doi": d.metadata.get("doi"),
+        }
         for d in docs
     ]
 
