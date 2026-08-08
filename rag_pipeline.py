@@ -2,12 +2,12 @@ from typing import TypedDict, List, Optional
 from langchain_core.documents import Document
 from langgraph.graph import StateGraph, END
 from langchain_core.prompts import PromptTemplate
-from langchain_google_genai import ChatGoogleGenerativeAI
 from dotenv import load_dotenv
 import os
 import yaml
 
 from mock_data import retrieve_evidence
+from llm_provider import get_llm, has_api_key
 
 load_dotenv()
 
@@ -19,8 +19,6 @@ with open(_CONFIG_PATH, "r") as _f:
 CONFIDENCE_THRESHOLD: float = _CONFIG["confidence"]["threshold"]
 _TOP_K: int = _CONFIG["retrieval"]["top_k"]
 _DB_PATH: str = _CONFIG["retrieval"]["db_path"]
-_LLM_MODEL: str = _CONFIG["llm"]["model"]
-_LLM_TEMPERATURE: float = _CONFIG["llm"]["temperature"]
 
 class PatientMetadata(TypedDict):
     """
@@ -90,16 +88,16 @@ def synthesize_rationale(state: RAGState) -> RAGState:
     """
     print("--- Synthesizing Rationale ---")
     
-    # Mock fallback if a Gemini API key isn't provided
-    if not os.environ.get("GOOGLE_API_KEY"):
-        print("Warning: GOOGLE_API_KEY not set. Generating a mock report.")
+    # Mock fallback if no active provider's API key is set
+    if not has_api_key():
+        print("Warning: active LLM provider's API key not set. Generating a mock report.")
         context_str = "\n".join([doc.page_content for doc in state.get("retrieved_context", [])])
         mock_report = (
             f"**Mock Clinical Rationale Report**\n\n"
             f"**Patient Details:** {state['metadata']['age']}yo {state['metadata']['sex']}\n"
             f"**Vision Module Finding:** {state['cnn_prediction']} (Confidence: {state['cnn_confidence']:.0%})\n\n"
             f"**Supporting Literature Context:**\n{context_str}\n\n"
-            f"*Note: Please set GOOGLE_API_KEY (in a local .env file) to generate a real LLM report.*"
+            f"*Note: Please set the active provider's API key (in a local .env file) to generate a real LLM report.*"
         )
         state["clinical_report"] = mock_report
         return state
@@ -127,7 +125,7 @@ def synthesize_rationale(state: RAGState) -> RAGState:
     )
 
     try:
-        llm = ChatGoogleGenerativeAI(model=_LLM_MODEL, temperature=_LLM_TEMPERATURE)
+        llm = get_llm()
         response = llm.invoke(formatted_prompt)
         state["clinical_report"] = response.content
     except Exception as e:

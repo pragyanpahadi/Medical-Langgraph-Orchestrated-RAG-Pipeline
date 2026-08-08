@@ -1,6 +1,6 @@
 #for cnn model
 confidence:
-  threshold: 0.80
+  threshold: 0.60
 
 vision:
   # Fixed filename convention: to update the model, overwrite this file with a
@@ -18,11 +18,25 @@ retrieval:
   db_path: "faiss_index"
   # HuggingFace sentence-transformer model used for embedding.
   embedding_model: "all-MiniLM-L6-v2"
+  # Max FAISS L2 distance (lower = more similar) for a query to be treated as
+  # in-scope. Empirically, real OCT/AD questions score ~0.7-1.0 against this
+  # index; off-topic or injection-style questions score ~1.6+. Queries scoring
+  # above this are declined without ever calling the LLM.
+  relevance_distance_threshold: 1.3
 
 
 llm:
-  # Google Gemini model (free tier) used for clinical report synthesis.
-  # Requires GOOGLE_API_KEY to be set in a local .env file (see .env.example).
-  model: "gemini-2.0-flash"
-  # Lower = more deterministic/reproducible; higher = more creative.
-  temperature: 0.0
+  gemini:
+    active: false
+    model: "gemini-2.0-flash"
+    # Lower = more deterministic/reproducible; higher = more creative.
+    temperature: 0.0
+  groq:
+    # Groq's free tier: fast inference, no billing setup required.
+    active: true
+    model: "llama-3.3-70b-versatile"
+    temperature: 0.0
+  openai:
+    active: false
+    model: "gpt-4o-mini"
+    temperature: 0.0

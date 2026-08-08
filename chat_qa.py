@@ -7,9 +7,9 @@ import os
 import yaml
 from dotenv import load_dotenv
 from langchain_core.prompts import PromptTemplate
-from langchain_google_genai import ChatGoogleGenerativeAI
 
 from mock_data import retrieve_evidence
+from llm_provider import get_llm, has_api_key
 
 load_dotenv()
 
@@ -19,8 +19,6 @@ with open(_CONFIG_PATH, "r") as _f:
 
 _TOP_K = _CONFIG["retrieval"]["top_k"]
 _DB_PATH = _CONFIG["retrieval"]["db_path"]
-_LLM_MODEL = _CONFIG["llm"]["model"]
-_LLM_TEMPERATURE = _CONFIG["llm"]["temperature"]
 
 _QA_PROMPT = PromptTemplate.from_template(
     "You are an assistant helping a clinician understand an AI-assisted retinal "
@@ -53,15 +51,15 @@ def answer_question(question: str, case_report: str = "", history: list[tuple[st
         for d in docs
     ]
 
-    if not os.environ.get("GOOGLE_API_KEY"):
+    if not has_api_key():
         mock_answer = (
-            f"**Mock answer** (set GOOGLE_API_KEY for a real response)\n\n"
+            f"**Mock answer** (set the active provider's API key for a real response)\n\n"
             f"Retrieved context:\n{context_str}"
         )
         return {"answer": mock_answer, "sources": sources}
 
     try:
-        llm = ChatGoogleGenerativeAI(model=_LLM_MODEL, temperature=_LLM_TEMPERATURE)
+        llm = get_llm()
         prompt = _QA_PROMPT.format(
             case_report=case_report or "(no active case report)",
             context=context_str,
