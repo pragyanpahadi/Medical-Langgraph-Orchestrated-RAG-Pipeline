@@ -1,10 +1,8 @@
 #for cnn model
 confidence:
-  threshold: 0.60
+  threshold: 0.50
 
 vision:
-  # Fixed filename convention: to update the model, overwrite this file with a
-  # new checkpoint (same architecture) — no code changes needed.
   checkpoint_path: "models/vision_model.pth"
   image_size: 224
   class_names: ["AD", "NORMAL"]
@@ -12,16 +10,12 @@ vision:
 
 #for faiss
 retrieval:
-  # Number of top-k documents to retrieve from the FAISS index.
+  # Number of top-k documents 
   top_k: 2
-  # Path to the locally saved FAISS index directory.
   db_path: "faiss_index"
-  # HuggingFace sentence-transformer model used for embedding.
+  # we use huggingFace sentence-transformer model used for embedding.
   embedding_model: "all-MiniLM-L6-v2"
-  # Max FAISS L2 distance (lower = more similar) for a query to be treated as
-  # in-scope. Empirically, real OCT/AD questions score ~0.7-1.0 against this
-  # index; off-topic or injection-style questions score ~1.6+. Queries scoring
-  # above this are declined without ever calling the LLM.
+# euclidean distance in our vector db
   relevance_distance_threshold: 1.3
 
 
@@ -29,14 +23,12 @@ llm:
   gemini:
     active: false
     model: "gemini-2.0-flash"
-    # Lower = more deterministic/reproducible; higher = more creative.
     temperature: 0.0
   groq:
-    # Groq's free tier: fast inference, no billing setup required.
-    active: true
+    active: false
     model: "llama-3.3-70b-versatile"
     temperature: 0.0
   openai:
-    active: false
+    active: true
     model: "gpt-4o-mini"
     temperature: 0.0

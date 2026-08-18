@@ -14,6 +14,7 @@ import yaml
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
+from pypdf import PdfReader
 
 from mock_data import get_embeddings
 
@@ -39,6 +40,15 @@ SOURCE_DOIS = {}
 # A DOI is "10.<4-9 digit registrant>/<suffix>". Real papers print their own
 # DOI on page 1 or 2, often as "doi:10.xxxx/yyyy" or "https://doi.org/10.xxxx/yyyy".
 _DOI_PATTERN = re.compile(r"10\.\d{4,9}/[-._;()/:A-Za-z0-9]+")
+
+# Same idea as SOURCE_DOIS, for a paper's display title — checked before
+# PDF-metadata detection. A PDF's embedded metadata title is sometimes an
+# internal manuscript ID (e.g. "EB_A_235238 1..20") rather than the real
+# title, so this is also where you fix that if it ever happens.
+SOURCE_TITLES = {
+    "OCTBiomarkersForAD.pdf": "Retinal biomarkers for early Alzheimer's detection: a systematic review of optical coherence tomography (OCT) findings",
+    "OCTADmoreinfo.pdf": "Optical Coherence Tomography in Patients with Alzheimer's Disease: What Can It Tell Us?",
+}
 
 
 def _detect_doi(pages: list) -> str | None:
@@ -85,6 +95,41 @@ def _resolve_doi(source_name: str, pages: list) -> str | None:
     return None
 
 
+def _looks_like_real_title(title: str | None) -> bool:
+    if not title:
+        return False
+    title = title.strip()
+    # Rejects internal manuscript IDs (e.g. "EB_A_235238 1..20") and other
+    # non-title metadata: real titles are prose, several words long, and
+    # don't contain underscores or ".." page-range markers.
+    return len(title) >= 15 and title.count(" ") >= 3 and "_" not in title and ".." not in title
+
+
+def _resolve_title(pdf_path: str, source_name: str) -> str:
+    if source_name in SOURCE_TITLES:
+        return SOURCE_TITLES[source_name]
+
+    try:
+        pdf_title = PdfReader(pdf_path).metadata.title
+    except Exception:
+        pdf_title = None
+
+    if _looks_like_real_title(pdf_title):
+        print(f"  -> detected title (PDF metadata): {pdf_title}")
+        return pdf_title
+
+    if sys.stdin.isatty():
+        entered = input(
+            f"  No reliable title found in '{source_name}'. Paste the "
+            f"paper's title, or press Enter to use the filename instead: "
+        ).strip()
+        return entered or source_name
+
+    print(f"  -> no reliable title found for '{source_name}' and not "
+          f"running interactively; using the filename instead.")
+    return source_name
+
+
 def load_and_chunk() -> list:
     splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=100)
     all_chunks = []
@@ -103,8 +148,10 @@ def load_and_chunk() -> list:
         chunks = splitter.split_documents(pages)
         source_name = os.path.basename(pdf_path)
         doi = _resolve_doi(source_name, pages)
+        title = _resolve_title(pdf_path, source_name)
         for chunk in chunks:
             chunk.metadata["source"] = source_name
+            chunk.metadata["title"] = title
             # PyPDFLoader already sets metadata["page"] (0-indexed) per chunk
             if doi:
                 chunk.metadata["doi"] = doi

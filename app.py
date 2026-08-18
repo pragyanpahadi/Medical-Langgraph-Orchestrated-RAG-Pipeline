@@ -80,10 +80,10 @@ def render_report_and_chat(result: dict, chat_key: str):
             st.write(qa_result["answer"])
             with st.expander("Sources"):
                 for s in qa_result["sources"]:
-                    line = f"- {s['source']}, page {s['page']}"
+                    line = f"**[{s['number']}]** {s['title']}"
                     if s.get("doi"):
-                        line += f" (DOI: {s['doi']})"
-                    st.write(line)
+                        line += f" — DOI: [{s['doi']}]({s['doi_url']})"
+                    st.markdown(line)
         st.session_state.chat_history[chat_key].append((question, qa_result["answer"]))
 
 

@@ -8,6 +8,7 @@ import yaml
 
 from mock_data import retrieve_evidence
 from llm_provider import get_llm, has_api_key
+from citations import build_citation_map, format_context_with_numbers, build_sources_list, format_references_markdown
 
 load_dotenv()
 
@@ -87,16 +88,21 @@ def synthesize_rationale(state: RAGState) -> RAGState:
     Synthesizes the final context-aware clinical report using an LLM.
     """
     print("--- Synthesizing Rationale ---")
-    
+
+    docs = state.get("retrieved_context", [])
+    citation_map = build_citation_map(docs)
+    context_str = format_context_with_numbers(docs, citation_map)
+    references_block = format_references_markdown(build_sources_list(docs, citation_map))
+
     # Mock fallback if the configured provider's API key isn't set
     if not has_api_key():
         print("Warning: no API key set for the configured LLM provider. Generating a mock report.")
-        context_str = "\n".join([doc.page_content for doc in state.get("retrieved_context", [])])
         mock_report = (
             f"**Mock Clinical Rationale Report**\n\n"
             f"**Patient Details:** {state['metadata']['age']}yo {state['metadata']['sex']}\n"
             f"**Vision Module Finding:** {state['cnn_prediction']} (Confidence: {state['cnn_confidence']:.0%})\n\n"
             f"**Supporting Literature Context:**\n{context_str}\n\n"
+            f"{references_block}\n\n"
             f"*Note: Set the appropriate API key (see llm.provider in config.yaml) in a local .env file to generate a real LLM report.*"
         )
         state["clinical_report"] = mock_report
@@ -114,10 +120,14 @@ def synthesize_rationale(state: RAGState) -> RAGState:
         "=== VISION MODEL OUTPUT ===\nPrediction: {prediction}\nConfidence: {confidence}\nVisual Features: {visual_features}\n=== END VISION MODEL OUTPUT ===\n\n"
         "=== RETRIEVED LITERATURE CONTEXT ===\n{context}\n=== END RETRIEVED LITERATURE CONTEXT ===\n\n"
         "Provide a concise summary linking the vision model's findings with the literature context and patient metadata. "
-        "Do not make a definitive diagnosis, summarize the evidence for the clinician."
+        "Do not make a definitive diagnosis, summarize the evidence for the clinician. Each retrieved passage above "
+        "is prefixed with a bracketed number at the very start of its block, e.g. \"[1] <passage text>\" — that "
+        "prefix is the ONLY citation number you should use, and only once per passage block. A passage's own text "
+        "may itself contain other bracketed or bare numbers (a paper's own bibliography or in-text citations, e.g. "
+        "\"[9]\" or \"17 Smith et al.\") — these are NOT part of this numbering scheme; ignore them entirely when "
+        "choosing what number to cite. Do not name the source file or invent a references list yourself; one is "
+        "appended automatically."
     )
-
-    context_str = "\n".join([doc.page_content for doc in state.get("retrieved_context", [])])
 
     formatted_prompt = prompt.format(
         age=state["metadata"]["age"],
@@ -132,7 +142,10 @@ def synthesize_rationale(state: RAGState) -> RAGState:
     try:
         llm = get_llm()
         response = llm.invoke(formatted_prompt)
-        state["clinical_report"] = response.content
+        report = response.content
+        if references_block:
+            report += f"\n\n{references_block}"
+        state["clinical_report"] = report
     except Exception as e:
         # Never let a live demo crash on an API hiccup (quota, network, etc.)
         print(f"Warning: LLM call failed ({type(e).__name__}: {e}). Falling back to mock report.")
@@ -140,6 +153,7 @@ def synthesize_rationale(state: RAGState) -> RAGState:
             f"**Report Synthesis Unavailable ({type(e).__name__})**\n\n"
             f"**Vision Module Finding:** {state['cnn_prediction']} (Confidence: {state['cnn_confidence']:.0%})\n\n"
             f"**Supporting Literature Context:**\n{context_str}\n\n"
+            f"{references_block}\n\n"
             f"*Note: LLM call failed — raw retrieved context shown instead. Check API quota/network.*"
         )
 

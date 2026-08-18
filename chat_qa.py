@@ -20,6 +20,7 @@ from langchain_core.prompts import PromptTemplate
 
 from mock_data import retrieve_evidence_with_scores
 from llm_provider import get_llm, has_api_key
+from citations import build_citation_map, format_context_with_numbers, build_sources_list
 
 load_dotenv()
 
@@ -52,9 +53,16 @@ _QA_PROMPT = PromptTemplate.from_template(
     "respond with exactly: \"{out_of_scope_answer}\"\n\n"
     "Otherwise, answer using ONLY the retrieved literature context and the "
     "current case's report below. If the context doesn't contain the answer, "
-    "say so plainly rather than guessing. Keep answers concise and cite the "
-    "source document/page (and its DOI, when one is given) when you use a "
-    "retrieved fact.\n\n"
+    "say so plainly rather than guessing. Keep answers concise. Each "
+    "retrieved passage below is prefixed with a bracketed number at the very "
+    "start of its block, e.g. \"[1] <passage text>\" — that prefix is the "
+    "ONLY citation number you should use, and only once per passage block. "
+    "A passage's own text may itself contain other bracketed or bare "
+    "numbers (a paper's own bibliography or in-text citations, e.g. \"[9]\" "
+    "or \"17 Smith et al.\") — these are NOT part of this numbering scheme; "
+    "ignore them entirely when choosing what number to cite. Do not name "
+    "the source file or invent a references list yourself; a Sources list "
+    "is shown separately to the clinician.\n\n"
     "=== CURRENT CASE REPORT ===\n{case_report}\n=== END CURRENT CASE REPORT ===\n\n"
     "=== RETRIEVED CONTEXT ===\n{context}\n=== END RETRIEVED CONTEXT ===\n\n"
     "Conversation so far:\n{history}\n\n"
@@ -77,23 +85,10 @@ def answer_question(question: str, case_report: str = "", history: list[tuple[st
         return {"answer": _OUT_OF_SCOPE_ANSWER, "sources": []}
 
     docs = [d for d, _ in scored_docs]
-
-    def _citation_label(d):
-        label = f"{d.metadata.get('source', 'unknown')}, page {d.metadata.get('page', '?')}"
-        doi = d.metadata.get("doi")
-        return f"{label}, DOI {doi}" if doi else label
-
-    context_str = "\n\n".join(f"[{_citation_label(d)}] {d.page_content}" for d in docs)
+    citation_map = build_citation_map(docs)
+    context_str = format_context_with_numbers(docs, citation_map)
     history_str = "\n".join(f"Q: {q}\nA: {a}" for q, a in history) or "(none yet)"
-
-    sources = [
-        {
-            "source": d.metadata.get("source", "unknown"),
-            "page": d.metadata.get("page", "?"),
-            "doi": d.metadata.get("doi"),
-        }
-        for d in docs
-    ]
+    sources = build_sources_list(docs, citation_map)
 
     if not has_api_key():
         mock_answer = (
