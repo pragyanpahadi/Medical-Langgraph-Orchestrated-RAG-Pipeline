@@ -112,7 +112,7 @@ def answer_question(question: str, case_report: str = "", history: list[tuple[st
         # Never let a live demo crash on an API hiccup (quota, network, etc.) —
         # fall back to showing the raw retrieved context instead.
         fallback_answer = (
-            f"**LLM call failed ({type(e).__name__}), showing retrieved context directly:**\n\n"
+            f"**LLM call failed ({type(e).__name__}: {str(e)}), showing retrieved context directly:**\n\n"
             f"{context_str}"
         )
         return {"answer": fallback_answer, "sources": sources}

@@ -150,7 +150,7 @@ def synthesize_rationale(state: RAGState) -> RAGState:
         # Never let a live demo crash on an API hiccup (quota, network, etc.)
         print(f"Warning: LLM call failed ({type(e).__name__}: {e}). Falling back to mock report.")
         state["clinical_report"] = (
-            f"**Report Synthesis Unavailable ({type(e).__name__})**\n\n"
+            f"**Report Synthesis Unavailable ({type(e).__name__}: {str(e)})**\n\n"
             f"**Vision Module Finding:** {state['cnn_prediction']} (Confidence: {state['cnn_confidence']:.0%})\n\n"
             f"**Supporting Literature Context:**\n{context_str}\n\n"
             f"{references_block}\n\n"
