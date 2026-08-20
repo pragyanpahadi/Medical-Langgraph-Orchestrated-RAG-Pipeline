@@ -5,10 +5,9 @@ has_api_key() from here, so switching providers is a config-only change
 (flip which provider has active: true), not a code change.
 """
 import os
-
+import requests
 import yaml
 from dotenv import load_dotenv
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_groq import ChatGroq
 from langchain_openai import ChatOpenAI
 
@@ -49,6 +48,32 @@ def has_api_key() -> bool:
     return bool(os.environ.get(_REQUIRED_ENV_VAR[PROVIDER]))
 
 
+class DirectGeminiLLM:
+    def __init__(self, model, temperature):
+        self.model = model
+        self.temperature = temperature
+        
+    def invoke(self, prompt):
+        api_key = os.getenv("GOOGLE_API_KEY")
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent?key={api_key}"
+        payload = {
+            "contents": [{"parts": [{"text": str(prompt)}]}],
+            "generationConfig": {"temperature": self.temperature}
+        }
+        res = requests.post(url, json=payload)
+        data = res.json()
+        
+        class FakeResponse:
+            pass
+            
+        ret = FakeResponse()
+        if "candidates" in data:
+            ret.content = data["candidates"][0]["content"]["parts"][0]["text"]
+            return ret
+        else:
+            raise Exception(f"Gemini API Error: {data}")
+
+
 def get_llm():
     """Returns a LangChain chat model instance for whichever provider has
     active: true in config.yaml."""
@@ -56,7 +81,7 @@ def get_llm():
     if PROVIDER == "groq":
         return ChatGroq(model=cfg["model"], temperature=cfg["temperature"])
     elif PROVIDER == "gemini":
-        return ChatGoogleGenerativeAI(model=cfg["model"], temperature=cfg["temperature"])
+        return DirectGeminiLLM(model=cfg["model"], temperature=cfg["temperature"])
     elif PROVIDER == "openai":
         return ChatOpenAI(model=cfg["model"], temperature=cfg["temperature"])
     raise ValueError(f"Unknown LLM provider resolved: {PROVIDER!r}")
