@@ -21,7 +21,7 @@ retrieval:
 
 llm:
   gemini:
-    active: false
+    active: true
     model: "gemini-2.0-flash"
     temperature: 0.0
   groq:
@@ -29,6 +29,6 @@ llm:
     model: "llama-3.3-70b-versatile"
     temperature: 0.0
   openai:
-    active: true
+    active: false
     model: "gpt-4o-mini"
     temperature: 0.0
