@@ -22,7 +22,7 @@ retrieval:
 llm:
   gemini:
     active: true
-    model: "gemini-2.0-flash"
+    model: "gemini-1.5-flash"
     temperature: 0.0
   groq:
     active: false
