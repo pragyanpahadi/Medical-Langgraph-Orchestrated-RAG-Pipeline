@@ -17,7 +17,7 @@ from chat_qa import answer_question
 from oct_validity_check import is_valid_oct_image
 from conversation_flow import parse_age, parse_sex, parse_cognitive_score
 
-st.set_page_config(page_title="Alzheimer's OCT Screening Assistant", page_icon="🧠", layout="wide")
+st.set_page_config(page_title="Alzheimer's OCT Screening Assistant", page_icon="🧠", layout="wide", initial_sidebar_state="expanded")
 
 
 @st.cache_resource
