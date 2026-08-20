@@ -17,7 +17,7 @@ from chat_qa import answer_question
 from oct_validity_check import is_valid_oct_image
 from conversation_flow import parse_age, parse_sex, parse_cognitive_score
 
-st.set_page_config(page_title="Alzheimer's OCT Screening Assistant", page_icon="🧠", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Alzheimer's OCT Screening Assistant", page_icon="🐻", layout="wide", initial_sidebar_state="expanded")
 
 
 @st.cache_resource
@@ -38,7 +38,7 @@ def render_report_and_chat(result: dict, chat_key: str):
     col1, col2 = st.columns(2)
     with col1:
         st.subheader("Vision Model Output")
-        badge = "🔴" if "Positive" in result["cnn_prediction"] else "🟢"
+        badge = "😢" if "Positive" in result["cnn_prediction"] else "😊"
         short_pred = result["cnn_prediction"].replace("Alzheimer's Risk Indicator ", "")
         st.metric(label="Prediction", value=f"{badge} {short_pred}")
         st.progress(result["cnn_confidence"], text=f"Confidence: {result['cnn_confidence']:.1%}")
@@ -50,7 +50,6 @@ def render_report_and_chat(result: dict, chat_key: str):
         else:
             st.success("✅ Confidence meets threshold — auto-synthesized report below.")
 
-    st.subheader("Clinical Rationale Report")
     st.markdown(result["clinical_report"])
 
     st.divider()
