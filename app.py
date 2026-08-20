@@ -39,7 +39,8 @@ def render_report_and_chat(result: dict, chat_key: str):
     with col1:
         st.subheader("Vision Model Output")
         badge = "🔴" if "Positive" in result["cnn_prediction"] else "🟢"
-        st.metric(label="Prediction", value=f"{badge} {result['cnn_prediction']}")
+        short_pred = result["cnn_prediction"].replace("Alzheimer's Risk Indicator ", "")
+        st.metric(label="Prediction", value=f"{badge} {short_pred}")
         st.progress(result["cnn_confidence"], text=f"Confidence: {result['cnn_confidence']:.1%}")
         st.caption(result["visual_features"])
     with col2:
